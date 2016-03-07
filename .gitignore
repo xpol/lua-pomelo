@@ -30,3 +30,8 @@
 
 # Debug files
 *.dSYM/
+
+# Custom filters
+/build
+/build.luarocks
+/.lua-version
