@@ -45,13 +45,13 @@ static const char * const log_levels[] = {
 
 /*
  * local pomelo = require('pomelo')
- * pomelo.init({
+ * pomelo.configure({
  *   log='WARN', -- log level, optional, one of 'DEBUG', 'INFO', 'WARN', 'ERROR', 'DISABLE', default to 'DISABLE'
  *   cafile = 'path/to/ca/file', -- optional
  *   capath = 'path/to/ca/path', -- optional
  * })
  */
-static int lib_init(lua_State* L)
+static int lib_configure(lua_State* L)
 {
     int log_level = PC_LOG_DISABLE;
     const char* ca_file = NULL;
@@ -72,7 +72,7 @@ static int lib_init(lua_State* L)
         ca_path = luaL_optstring(L, -1, NULL);
         lua_pop(L, 1);
         break;
-    case LUA_TNIL: break;
+    case LUA_TNONE: break;
     default:
         luaL_argerror(L, 1, "expected an optional table");
     }
@@ -84,23 +84,9 @@ static int lib_init(lua_State* L)
 #endif
 
     pc_lib_set_default_log_level(log_level);
-    pc_lib_init(NULL, NULL, NULL, "Lua Client");
 
     return 0;
 }
-
-/*
-* local pomelo = require('pomelo')
-* pomelo.init()
-* -- ...
-* pomelo.exit()
-*/
-static int lib_exit(lua_State* L)
-{
-    pc_lib_cleanup();
-    return 0;
-}
-
 
 /*
 * local pomelo = require('pomelo')
@@ -153,9 +139,9 @@ static pc_client_config_t check_client_config(lua_State* L, int idx)
 {
     pc_client_config_t config = PC_CLIENT_CONFIG_DEFAULT;
     int t = lua_type(L, idx);
-    if (t != LUA_TTABLE && t != LUA_TNIL)
+    if (t != LUA_TTABLE && t != LUA_TNONE)
         luaL_error(L, "bad argument %d to pomelo.newClient (table|none expected, got %s)", idx, luaL_typename(L, idx));
-    if (t == LUA_TNIL)
+    if (t == LUA_TNONE)
         return config;
 
     lua_getfield(L, idx, "conn_timeout");
@@ -275,15 +261,15 @@ static void lua_event_cb(pc_client_t *client, int ev_type, void* ex_data, const 
             nargs = 1;
             break;
         case PC_EV_CONNECTED:
-            lua_pushliteral(L, "connected");           // [event_registry, connected]
+            lua_pushliteral(L, "connected");        // [event_registry, connected]
             lua_rawget(L, -2);                      // [event_registry, handlers]
             break;
         case PC_EV_DISCONNECT:
-            lua_pushliteral(L, "disconnect");          // [event_registry, disconnect]
+            lua_pushliteral(L, "disconnect");       // [event_registry, disconnect]
             lua_rawget(L, -2);                      // [event_registry, handlers]
             break;
         case PC_EV_KICKED_BY_SERVER:
-            lua_pushliteral(L, "kicked");                // [event_registry, kick]
+            lua_pushliteral(L, "kicked");           // [event_registry, kick]
             lua_rawget(L, -2);                      // [event_registry, handlers]
             break;
         case PC_EV_CONNECT_ERROR:
@@ -882,9 +868,7 @@ static void createClassMetatable(lua_State* L, const char* name, const luaL_Reg*
 }
 
 static const luaL_Reg lib[] = {
-    {"init", lib_init},
-    {"exit", lib_exit},
-    {"cleanup", lib_exit},          // Alias for exit().
+    {"configure", lib_configure},
     {"version", lib_version},
     {"newClient", Client_new},
     {"createClient", Client_new},   // Alias for newClient().
@@ -893,9 +877,15 @@ static const luaL_Reg lib[] = {
 };
 
 
+static int initialized = 0;
 
 LUALIB_API int luaopen_pomelo(lua_State *L)
 {
+    if (!initialized) {
+        initialized = 1;
+        printf("initialized libpomelo2...\n");
+        pc_lib_init(NULL, NULL, NULL, "Lua Client");
+    }
     createClassMetatable(L, ClientMETA, client_methods);
     createOnceMeta(L);
     lua_createtable(L, 0, sizeof(lib)/sizeof(lib[0])-1);

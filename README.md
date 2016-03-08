@@ -80,27 +80,39 @@ local pomelo = require('pomelo')
 
 ### Library APIs
 
-**pomelo.init([opts])**
+**pomelo.configure([opts])**
+
+Update options for the libpomelo2.
+
+Follow fields for `opts` are supported:
+
+* `.log`: string, the log level for the libpomelo2.
+* `.cafile`: string, path to CA file.
+* `.capath`: string, path to CA directory.
 
 ```Lua
-pomelo.init({
+pomelo.configure({
   log='WARN', -- log level, optional, one of 'DEBUG', 'INFO', 'WARN', 'ERROR', 'DISABLE', default to 'DISABLE'
   cafile = 'path/to/ca/file', -- optional
   capath = 'path/to/ca/path', -- optional
 })
 ```
 
-**pomelo.cleanup()**
+Note: The ca setting code under hood is:
 
-cleanup the library.
 
-**pomelo.exit()**
+```c
+if (ca_file || ca_path) {
+    tr_uv_tls_set_ca_file(ca_file, ca_path);
+}
+```
 
-Same as pomelo.cleanup
+If you don't provide `cafile` and `capath`, the `cafile` and `capath` are
+unchanged. If you provide provide one of them, the another one is set as NULL.
 
 **pomelo.version()**
 
-get the pomelo version string.
+Returns the pomelo version string. The version string is `x.y.z-release`.
 
 
 **pomelo.newClient()**
