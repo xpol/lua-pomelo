@@ -37,7 +37,7 @@ else(UNIX)
   endif(WIN32)
 endif(UNIX)
 
-if (NOT LUA_INCLUDE_DIR)
+if (NOT LUA_INCLUDE_DIR OR NOT (BUILD_SHARED_LIBS OR LUA_LIBRARIES))
     message("Using system lua...")
     set(ENV{LUA_DIR} ~/.luaenv/versions/5.1.5) # hints for find lua in luaenv.
     find_package(Lua REQUIRED)
@@ -109,6 +109,8 @@ endif()
 
 if (BUILD_TESTS)
   include_directories(src)
+  add_definitions(-DPROJECT_ROOT="${CMAKE_SOURCE_DIR}")
   add_executable(runner spec/runner.c)
+  message("Lua: ${LUA_LIBRARIES}")
   target_link_libraries(runner pomelo ${LUA_LIBRARIES} ${LIBUV_LIBRARIES} ${OPENSSL_LIBRARIES})
 endif()

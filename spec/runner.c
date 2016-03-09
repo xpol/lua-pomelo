@@ -44,38 +44,21 @@ void preload_lua_modules(lua_State *L)
 }
 
 
-static void createargtable(lua_State *L, char **argv, int argc, int script) {
-  int i, narg;
-  if (script == argc) script = 0;  /* no script name? */
-  narg = argc - (script + 1);  /* number of positive indices */
-  lua_createtable(L, narg, script + 1);
-  for (i = 0; i < argc; i++) {
-    lua_pushstring(L, argv[i]);
-    lua_rawseti(L, -2, i - script);
-  }
-  lua_setglobal(L, "arg");
-}
-
 // runner spec/xxx_spec.lua [bustedoptions]
-static void run(int argc, char **argv)
+static int run(int argc, char **argv)
 {
-    if (argc < 2)
-    {
-        printf("USAGE: runner spec/you_spec.lua [bustedoptions]\n");
-        exit(EXIT_FAILURE);
-    }
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
     preload_lua_modules(L);
-    createargtable(L, argv, argc, 1);
-    if (luaL_dofile(L, argv[1])!=0)
+    lua_createtable(L, 0, 0);
+    lua_setglobal(L, "arg");
+    if (luaL_dofile(L, argc > 1 ? argv[1] : PROJECT_ROOT "/spec/pomelo_spec.lua") != 0)
         traceback(L);
     lua_close(L);
+    return 0;
 }
 
 int main(int argc, char* argv[])
 {
-    run(argc, argv);
-
-    return 0;
+    return run(argc, argv);
 }
