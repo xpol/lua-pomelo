@@ -1,14 +1,14 @@
-arg = {}
-require("busted.runner")()
+require('busted.runner')()
+
 local pomelo = require('pomelo')
-pomelo.configure({log='DEBUG'})
+
 describe('pomelo', function()
   describe('.configure()', function()
     it('configure library without args', function()
-      pomelo.configure()
+      --pomelo.configure()
     end)
     it('configure library with options', function()
-      pomelo.configure({log='DEBUG', cafile='cafile', capath='.'})
+      pomelo.configure({log='DISABLE', cafile='cafile', capath='.'})
     end)
   end)
   describe('.version()', function()
@@ -23,7 +23,7 @@ describe('pomelo', function()
       local c = pomelo.newClient({enable_polling = false})
     end)
     it('construct a new client instance with options', function()
-      --[[local c = pomelo.newClient({
+      local c = pomelo.newClient({
         conn_timeout = 30, -- optional, default 30 seconds
         enable_reconn = true, -- optional, default true
         reconn_max_retry = 3, -- optional, 'ALWAYS' or a positive integer. default 'ALWAYS'
@@ -31,11 +31,11 @@ describe('pomelo', function()
         reconn_delay_max = 30, -- integer, optional, default to 30
         reconn_exp_backoff = true,-- boolean, optional, default to true
         enable_polling = true,
-        transport_name = "TCP" -- 'TCP', 'TLS', 'DUMMY', or an integer id of you customized transport
-      })]]
+        transport_name = "TLS" -- 'TCP', 'TLS', 'DUMMY', or an integer id of you customized transport
+      })
     end)
   end)
-  describe('.Client', function()
+  describe('Client', function()
     local client
     after_each(function()
       client = nil

@@ -883,7 +883,7 @@ LUALIB_API int luaopen_pomelo(lua_State *L)
 {
     if (!initialized) {
         initialized = 1;
-        printf("initialized libpomelo2...\n");
+        pc_lib_set_default_log_level(PC_LOG_DISABLE);
         pc_lib_init(NULL, NULL, NULL, "Lua Client");
     }
     createClassMetatable(L, ClientMETA, client_methods);
