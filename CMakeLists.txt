@@ -13,6 +13,7 @@ option(BUILD_SHARED_LIBS "Build shared library" OFF)
 option(WITH_SHARED_LIBUV "Link to a shared libuv library instead of static linking" OFF)
 option(WITH_UV_TCP_TRANS "Link to a shared libuv library instead of static linking" ON)
 option(WITH_UV_TLS_TRANS "Link to a shared libuv library instead of static linking" ON)
+set(BUILD_TESTS OFF CACHE BOOL "Build tests")
 
 if(UNIX)
   if(APPLE)
@@ -38,6 +39,7 @@ endif(UNIX)
 
 if (NOT LUA_INCLUDE_DIR)
     message("Using system lua...")
+    set(ENV{LUA_DIR} ~/.luaenv/versions/5.1.5) # hints for find lua in luaenv.
     find_package(Lua REQUIRED)
 endif()
 
@@ -49,13 +51,7 @@ endif()
 find_package(LibUV)
 find_package(OpenSSL)
 
-if(NOT LIBUV_FOUND)
-
-endif()
-
-
 include_directories(${LUA_INCLUDE_DIR} ${LIBPOMELO2_DIR}/include ${LIBPOMELO2_DIR}/src ${LIBUV_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
-
 
 list(APPEND SOURCES
   src/lua-pomelo.c
@@ -109,4 +105,10 @@ endif()
 
 if (CMAKE_INSTALL_PREFIX)
   install(TARGETS pomelo DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")
-endif(CMAKE_INSTALL_PREFIX)
+endif()
+
+if (BUILD_TESTS)
+  include_directories(src)
+  add_executable(runner spec/runner.c)
+  target_link_libraries(runner pomelo ${LUA_LIBRARIES} ${LIBUV_LIBRARIES} ${OPENSSL_LIBRARIES})
+endif()
