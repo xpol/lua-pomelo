@@ -39,6 +39,10 @@ In this case, luarocks can't help. To add this Lua binding for you game:
 4. add luaopen_pomelo to your package.preload, see follow code.
 
 ```c
+#include <lua.h>
+#include <lauxlib.h>
+#include "lua-pomelo.h"
+
 static const luaL_Reg modules[] = {
     { "pomelo", luaopen_pomelo },
 
