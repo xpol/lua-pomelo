@@ -135,12 +135,21 @@ static int optbool(lua_State* L, int idx, int def)
     return (lua_isnoneornil(L, idx)) ? def : lua_toboolean(L, idx);
 }
 
+static int recon_retry_max(lua_State* L, int idx) {
+    int v;
+    if (streq(L, idx, "ALWAYS"))
+        return PC_ALWAYS_RETRY;
+    v = (int)luaL_optinteger(L, idx, PC_ALWAYS_RETRY);
+    return v;
+}
+
 static pc_client_config_t check_client_config(lua_State* L, int idx)
 {
     pc_client_config_t config = PC_CLIENT_CONFIG_DEFAULT;
     int t = lua_type(L, idx);
     if (t != LUA_TTABLE && t != LUA_TNONE)
         luaL_error(L, "bad argument %d to pomelo.newClient (table|none expected, got %s)", idx, luaL_typename(L, idx));
+    config.enable_polling = 1;
     if (t == LUA_TNONE)
         return config;
 
@@ -153,8 +162,7 @@ static pc_client_config_t check_client_config(lua_State* L, int idx)
     lua_pop(L, 1);
 
     lua_getfield(L, idx, "reconn_max_retry");
-    config.enable_reconn = streq(L, -1, "ALWAYS") ? PC_ALWAYS_RETRY
-        : (int)luaL_optinteger(L, -1, PC_ALWAYS_RETRY);
+    config.reconn_max_retry = recon_retry_max(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "reconn_delay");
@@ -167,10 +175,6 @@ static pc_client_config_t check_client_config(lua_State* L, int idx)
 
     lua_getfield(L, -1, "reconn_exp_backoff");
     config.reconn_exp_backoff = optbool(L, -1, config.reconn_exp_backoff);
-    lua_pop(L, 1);
-
-    lua_getfield(L, idx, "enable_polling");
-    config.enable_polling = optbool(L, -1, config.enable_polling);
     lua_pop(L, 1);
 
     lua_getfield(L, idx, "transport_name");
@@ -204,9 +208,6 @@ static void push_client_config(lua_State* L, const pc_client_config_t* config)
 
     lua_pushboolean(L, config->reconn_exp_backoff);
     lua_setfield(L, -2, "reconn_exp_backoff");
-
-    lua_pushboolean(L, config->enable_polling);
-    lua_setfield(L, -2, "enable_polling");
 
     if (config->transport_name == PC_TR_NAME_UV_TCP
         || config->transport_name == PC_TR_NAME_UV_TLS
@@ -277,6 +278,7 @@ static void lua_event_cb(pc_client_t *client, int ev_type, void* ex_data, const 
         case PC_EV_UNEXPECTED_DISCONNECT:
         case PC_EV_PROTO_ERROR:
             lua_pushliteral(L, "error");            // [event_registry, error]
+            luaL_checktype(L, -2, LUA_TTABLE);
             lua_rawget(L, -2);                      // [event_registry, handlers]
             lua_pushstring(L, arg1);                // [event_registry, handlers, reason]
             nargs = 1;
@@ -849,6 +851,8 @@ static const luaL_Reg client_methods[] = {
     {"connQuality", Client_conn_quality},   // Alias for conn_quality
 
     {"poll", Client_poll},
+
+    {"close", Client_gc},
 
     {"__tostring", Client_tostring},
     {"__gc", Client_gc},

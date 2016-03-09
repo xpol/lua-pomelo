@@ -131,11 +131,13 @@ local opts =  {
    reconn_delay = 2, -- integer, optional, default to 2
    reconn_delay_max = 30, -- integer, optional, default to 30
    reconn_exp_backoff = true,-- boolean, optional, default to true
-   enable_polling = true,
    transport_name = "TCP" -- 'TCP', 'TLS', 'DUMMY', or an integer id of you customized transport
 }
 local client = pomelo:newClient(opts)
 ```
+
+Note: In Lua binding, unlike in c, all client in polling mode, that is setting
+`opts.enable_polling` has no effect.
 
 **pomelo.createClient**
 
