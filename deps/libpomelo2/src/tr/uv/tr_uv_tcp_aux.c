@@ -68,7 +68,7 @@ void tcp__reset(tr_uv_tcp_transport_t* tt)
 
     uv_read_stop((uv_stream_t* )&tt->socket);
 
-    if (!uv_is_closing((uv_handle_t*)&tt->socket)) {
+    if (tt->socket.type != UV_UNKNOWN_HANDLE && !uv_is_closing((uv_handle_t*)&tt->socket)) {
         uv_close((uv_handle_t*)&tt->socket, NULL);
     }
 
@@ -659,7 +659,7 @@ void tcp__cleanup_async_cb(uv_async_t* a)
 
     tcp__cleanup_pc_json(&tt->handshake_opts);
 
-    if (!uv_is_closing((uv_handle_t*)&tt->socket)) {
+    if (tt->socket.type != UV_UNKNOWN_HANDLE && !uv_is_closing((uv_handle_t*)&tt->socket)) {
         uv_close((uv_handle_t*)&tt->socket, NULL);
     }
     tt->reconn_times = 0;
