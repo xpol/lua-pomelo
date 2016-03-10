@@ -101,10 +101,10 @@ static int lib_version(lua_State* L)
 
 #define ClientMETA  "pomelo.Client"
 
-static void pushClient(lua_State* L, pc_client_t* req)
+static void pushClient(lua_State* L, pc_client_t* client)
 {
     pc_client_t** w = (pc_client_t**)lua_newuserdata(L, sizeof(*w));
-    *w = req;
+    *w = client;
     luaL_getmetatable(L, ClientMETA);
     lua_setmetatable(L, -2);
 }
