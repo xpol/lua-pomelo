@@ -478,8 +478,7 @@ static void destroy_lua_cb_ex(lua_cb_ex_t* p)
  * push the obj as a table copy on to lua stack
  */
 #define push_as_table(L, type, obj) \
-    lua_createtable(L, 0, 4); \
-    copy_field(L, obj, type, client, pushClient); \
+    lua_createtable(L, 0, 3); \
     copy_field(L, obj, type, route, lua_pushstring); \
     copy_field(L, obj, type, msg, lua_pushstring); \
     copy_field(L, obj, type, timeout, lua_pushinteger)
