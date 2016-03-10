@@ -364,7 +364,7 @@ static int pushRC(lua_State* L, int rc)
     }
 
     lua_pushboolean(L, 1);
-    return 2;
+    return 1;
 }
 /*
  *  ERROR
