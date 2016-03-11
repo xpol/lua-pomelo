@@ -524,16 +524,18 @@ static void push_as_error(lua_State* L, int rc)
 
 static void lua_request_cb(const pc_request_t* req, int rc, const char* res)
 {
+    int top;
     lua_State* L = load_cb_env(pc_request_ex_data(req));
     if (!L) return;
+    top = lua_gettop(L) - 1;
 
     push_as_error(L, rc);   // err
     push_as_table(L, request, req); // req
     lua_pushstring(L, res); // res
 
     // callback(err, req, res)
-    if (lua_pcall(L, 2, LUA_MULTRET, 0) != 0)
-        traceback(L);
+    lua_pcall(L, 3, 0, 0);
+    lua_settop(L, top);
 }
 
 static void lua_nofity_cb(const pc_notify_t* req, int rc)
@@ -750,7 +752,17 @@ static int fneq(lua_State* L, int cur, int check)
 
 static int tbeq(lua_State* L, int cur, int check)
 {
-    return lua_isfunction(L, cur) && lua_rawequal(L, cur, check);
+    int eq;
+    if (!lua_istable(L, cur))
+        return 0;
+
+    if (lua_rawequal(L, cur, check))
+        return 1;
+
+    lua_rawgeti(L, cur, ONCE_CALLBACK);
+    eq = lua_rawequal(L, -1, check);
+    lua_pop(L, 1);
+    return eq;
 }
 
 
