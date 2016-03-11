@@ -666,11 +666,14 @@ static int Client_on(lua_State* L)
 
 static int once_call(lua_State* L)
 {
+    int narg;
                                         // [self, ...]
     luaL_checktype(L, 1, LUA_TTABLE);
+    narg = lua_gettop(L) - 1;
     lua_rawgeti(L, 1, ONCE_CALLBACK);   // [self, ..., callback]
     lua_insert(L, 2);                   // [self, callback, ...]
-    lua_call(L, lua_gettop(L) - 2, 0);  // [self] -- just discard the return value of callback
+    if (lua_pcall(L, narg, 0, 0) != 0)  // [self] -- just discard the return value of callback
+        traceback(L);
 
     // remove the callback
     lua_rawgeti(L, 1, ONCE_CLIENT);     // [self, client]
@@ -693,24 +696,25 @@ static void createOnceMeta(lua_State* L)
     lua_pop(L, 1);
 }
 
-// requires stack: [...client, event, callback]
-// returns stack: [...client, event, callback, once]
+// requires stack: [client, event, callback]
+// returns stack: [client, event, callback, once]
 static void wrapOnce(lua_State* L)
 {
-    lua_createtable(L, 3, 0);           // [...client, event, callback, once]
+    assert(lua_gettop(L) == 3);
+    lua_createtable(L, 3, 0);           // [client, event, callback, once]
 
-    lua_pushvalue(L, -3);               // [...client, event, callback, once, client]
-    lua_rawseti(L, -2, ONCE_CLIENT);    // [...client, event, callback, once]
+    lua_pushvalue(L, 1);                // [client, event, callback, once, client]
+    lua_rawseti(L, -2, ONCE_CLIENT);    // [client, event, callback, once]
 
-    lua_pushvalue(L, -2);               // [...client, event, callback, once, event]
-    lua_rawseti(L, -2, ONCE_EVENT);     // [...client, event, callback, once]
+    lua_pushvalue(L, 2);                // [client, event, callback, once, event]
+    lua_rawseti(L, -2, ONCE_EVENT);     // [client, event, callback, once]
 
-    lua_pushvalue(L, -1);               // [...client, event, callback, once, callback]
-    lua_rawseti(L, -2, ONCE_CALLBACK);  // [...client, event, callback, once]
+    lua_pushvalue(L, 3);                // [client, event, callback, once, callback]
+    lua_rawseti(L, -2, ONCE_CALLBACK);  // [client, event, callback, once]
 
-                                        // [...client, event, callback, once]
-    luaL_getmetatable(L, OnceMeta);     // [...client, event, callback, once, meta]
-    lua_setmetatable(L, -2);            // [...client, event, callback, once]
+                                        // [client, event, callback, once]
+    luaL_getmetatable(L, OnceMeta);     // [client, event, callback, once, meta]
+    lua_setmetatable(L, -2);            // [client, event, callback, once]
 }
 
 
@@ -720,7 +724,7 @@ static int Client_once(lua_State* L)
                                 // [self, event, callback]
     toClient(L);
     luaL_checkstring(L, 2);
-    luaL_checktype(L, 3, LUA_TFUNCTION);
+    iscallable(L, 3);
     lua_settop(L, 3);
     wrapOnce(L);                // [self, event, once]
 
