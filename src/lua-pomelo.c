@@ -640,7 +640,7 @@ static int Client_on(lua_State* L)
         lua_createtable(L, 0, 0); // [client, route, callback, event_registry, new_listeners]
         lua_pushvalue(L, 2); // [client, route, callback, event_registry, new_listeners, route]
         lua_pushvalue(L, -2); // [client, route, callback, event_registry, new_listeners, route, new_listeners]
-        lua_rawset(L, -3); // [client, route, callback, event_registry, new_listeners]
+        lua_rawset(L, -4); // [client, route, callback, event_registry, new_listeners]
     }
 
     /*
