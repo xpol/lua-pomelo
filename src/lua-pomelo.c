@@ -1,4 +1,5 @@
 #include "lua-pomelo.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include "pomelo.h"
@@ -32,6 +33,21 @@ static int traceback(lua_State *L) {
     return 1;
 }
 
+static int iscallable(lua_State* L, int idx)
+{
+    int r;
+    switch (lua_type(L, idx)) {
+        case LUA_TFUNCTION:
+            return 1;
+        case LUA_TTABLE:
+            luaL_getmetafield(L, idx, "__call");
+            r = lua_isfunction(L, -1);
+            lua_pop(L, 1);
+            return r;
+        default:
+            return 0;
+    }
+}
 
 static const char * const log_levels[] = {
     "DEBUG",
@@ -456,7 +472,7 @@ typedef struct {
 static lua_cb_ex_t* create_lua_cb_ex(lua_State* L, int index)
 {
     lua_cb_ex_t* p = (lua_cb_ex_t*)malloc(sizeof(*p));
-    if (!p || !lua_isfunction(L, -1))
+    if (!p)
         return NULL;
 
     lua_pushvalue(L, index);
@@ -488,10 +504,10 @@ static lua_State* load_cb_env(void* cbex)
 {
     lua_State* L = NULL;
     lua_cb_ex_t* ex = (lua_cb_ex_t*)(cbex);
-    if (ex && ex->L)
-    {
+    if (ex && ex->L) {
         L = ex->L;
         lua_rawgeti(L, LUA_REGISTRYINDEX, ex->ref);
+        assert(iscallable(L, -1));
         destroy_lua_cb_ex(ex);
     }
     return L;
@@ -552,12 +568,13 @@ static lua_req_arg_t get_args(lua_State* L, int optional)
     args.timeout = PC_WITHOUT_TIMEOUT;
 
     switch (lua_type(L, 4)) {
+        case LUA_TTABLE: // fall thought
         case LUA_TFUNCTION: cbindex = 4; break;
         case LUA_TNUMBER: args.timeout = lua_tointeger(L, 4); break;
         default:
             luaL_error(L, "bad argument %d (number|function expected, got %s)", 4, luaL_typename(L, 4));
     }
-    if (!lua_isfunction(L, cbindex) && !optional)
+    if (!iscallable(L, cbindex) && !optional)
         luaL_error(L, "bad argument %d (function expected, got %s)", cbindex, luaL_typename(L, cbindex));
     args.ex = create_lua_cb_ex(L, cbindex);
     return args;
@@ -604,7 +621,7 @@ static int Client_on(lua_State* L)
     // [client, route, callback]
     pc_client_t* client = toClient(L);
     luaL_checkstring(L, 2);
-    luaL_checktype(L, 3, LUA_TFUNCTION);
+    iscallable(L, 3);
 
     load_registry(L, (int)pc_client_ex_data(client)); // [client, route, callback, event_registry]
 
