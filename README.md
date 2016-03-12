@@ -268,3 +268,20 @@ return client state, one of 'NOT_INITED','INITED','CONNECTING','CONNECTED','DISC
 same as client:conn_quality().
 
 **client:poll()**
+
+
+## Running Unit Tests
+
+This project uses [busted](https://github.com/Olivine-Labs/busted) for unit test.
+The the test server is running by pomelo. We can build using [luarocks](http://luarocks.org/).
+
+Requirements:
+
+1. Node.js installed on you machine.
+2. Lua [1]() and [luarocks](https://github.com/keplerproject/luarocks/wiki/Download#installing) installed and available in you path.
+
+1. Install pomelo by running `npm install pomelo -g`
+2. Install busted via luarocks `luarocks install busted`
+2. in `deps/libpomelo2/test/game-server` run `nmp install` and then `pomelo start`
+3. `luarocks make`
+4. `busted`
