@@ -564,9 +564,12 @@ static lua_req_arg_t get_args(lua_State* L, int optional)
 {
     lua_req_arg_t args;
     int cbindex = 5;
+    size_t sz;
     args.client = toClient(L);
     args.route = luaL_checkstring(L, 2);
-    args.msg = luaL_checkstring(L, 3);
+    args.msg = luaL_checklstring(L, 3, &sz);
+    if (sz == 0)
+        luaL_argerror(L, 3, "message should not be empty");
     args.timeout = PC_WITHOUT_TIMEOUT;
 
     switch (lua_type(L, 4)) {
