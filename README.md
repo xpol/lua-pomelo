@@ -37,6 +37,7 @@ In this case, luarocks can't help. To add this Lua binding for you game:
 2. add libpomelo2 to you project and make it compile and link to you project.
 3. just drop `lua-pomelo.c` and `lua-pomelo.h` in to you project.
 4. add luaopen_pomelo to your package.preload, see follow code.
+5. don't forget to call `client:poll` method each frame update.
 
 ```c
 #include <lua.h>
@@ -278,7 +279,7 @@ The the test server is running by pomelo. We can build using [luarocks](http://l
 Requirements:
 
 1. Node.js installed on you machine.
-2. Lua [1]() and [luarocks](https://github.com/keplerproject/luarocks/wiki/Download#installing) installed and available in you path.
+2. Lua and [luarocks](https://github.com/keplerproject/luarocks/wiki/Download#installing) installed and available in you path.
 
 1. Install pomelo by running `npm install pomelo -g`
 2. Install busted via luarocks `luarocks install busted`
