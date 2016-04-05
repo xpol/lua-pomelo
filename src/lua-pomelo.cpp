@@ -941,7 +941,7 @@ static const luaL_Reg lib[] = {
 
 static int initialized = 0;
 
-extern "C" LUALIB_API int luaopen_pomelo(lua_State *L)
+LUALIB_API int luaopen_pomelo(lua_State *L)
 {
     if (!initialized) {
         initialized = 1;
