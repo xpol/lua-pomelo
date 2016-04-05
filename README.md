@@ -144,6 +144,12 @@ Note: In Lua binding, unlike in c, all client in polling mode, that is setting
 
 same as pomelo.newClient
 
+**pomelo.poll**
+
+Polls all clients at once.
+
+This is preferred over `cleint:poll()`.
+
 ### Client object
 
 **client:connect(host, port)**
