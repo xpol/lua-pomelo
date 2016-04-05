@@ -282,15 +282,16 @@ same as client:conn_quality().
 This project uses [busted](https://github.com/Olivine-Labs/busted) for unit test.
 The the test server is running by pomelo. We can build using [luarocks](http://luarocks.org/).
 
-Requirements:
+**Requirements**:
 
 1. Node.js installed on you machine.
 2. Lua and [luarocks](https://github.com/keplerproject/luarocks/wiki/Download#installing) installed and available in you path.
 3. Install pomelo by running `npm install pomelo -g`
 4. Install busted via luarocks `luarocks install busted`
+5. in `deps/libpomelo2/test/game-server` run `nmp install`
 
-Running tests:
+**Running tests**:
 
-1. in `deps/libpomelo2/test/game-server` run `nmp install` and then `pomelo start`
-2. `luarocks make`
-3. `busted`
+1. in `deps/libpomelo2/test/game-server` run `pomelo start`
+2. run `luarocks make` to build
+3. run `busted`
