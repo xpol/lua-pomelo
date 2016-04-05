@@ -2,9 +2,15 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <algorithm>
+#include <vector>
 #include "pomelo.h"
 
-
+std::vector<pc_client_t*>& all_clients()
+{
+    static std::vector<pc_client_t*> clients_;
+    return clients_;
+}
 
 #if LUA_VERSION_NUM < 502
 #define lua_rawlen(L, idx)      lua_objlen(L, idx)
@@ -114,6 +120,15 @@ static int lib_version(lua_State* L)
     return 1;
 }
 
+
+static int lib_poll(lua_State* L)
+{
+    std::vector<pc_client_t*> clients(all_clients()); // make a copy of all clients vector for safe against deletion
+    for (std::vector<pc_client_t*>::size_type i = 0; i < clients.size(); ++i) {
+        pc_client_poll(clients[i]);
+    }
+    return 0;
+}
 
 #define ClientMETA  "pomelo.Client"
 
@@ -246,6 +261,10 @@ static void load_registry(lua_State* L, int ref) {
     lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
 }
 
+static void load_registry(lua_State* L, void* ref) {
+    load_registry(L, reinterpret_cast<intptr_t>(ref));
+}
+
 static void destroy_registry(lua_State* L, int ref) {
     luaL_unref(L, LUA_REGISTRYINDEX, ref);
 }
@@ -267,7 +286,7 @@ static void lua_event_cb(pc_client_t *client, int ev_type, void* ex_data, const 
     int nargs = 0, n, i, copy, a, start;
     lua_State* L = (lua_State*)ex_data;
     lua_checkstack(L, 8);
-    load_registry(L,(int)pc_client_ex_data(client));// [event_registry]
+    load_registry(L, pc_client_ex_data(client));    // [event_registry]
     start = lua_gettop(L);
 
     switch (ev_type) {
@@ -363,6 +382,7 @@ static int Client_new(lua_State* L)
     pc_client_add_ev_handler(client, lua_event_cb, L, NULL);
 
     pushClient(L, client);
+    all_clients().push_back(client);
     return 1;
 }
 
@@ -440,6 +460,8 @@ static int Client_gc(lua_State* L)
     pc_client_t** p = toClientp(L);
     if (!*p)
         return 0;
+    std::vector<pc_client_t*>& clients = all_clients();
+    clients.erase(std::remove(clients.begin(), clients.end(), *p), clients.end());
     pc_client_cleanup(*p);
     free(*p);
     *p = NULL;
@@ -628,7 +650,7 @@ static int Client_on(lua_State* L)
     luaL_checkstring(L, 2);
     iscallable(L, 3);
 
-    load_registry(L, (int)pc_client_ex_data(client)); // [client, route, callback, event_registry]
+    load_registry(L, pc_client_ex_data(client)); // [client, route, callback, event_registry]
 
     /*
     local listeners = registry[route]
@@ -811,7 +833,7 @@ static int Client_off(lua_State* L)
 
     lua_checkstack(L, 8);
 
-    load_registry(L, (int)pc_client_ex_data(client));   // [client, route, callback, event_registry]
+    load_registry(L, pc_client_ex_data(client));        // [client, route, callback, event_registry]
     lua_pushvalue(L, 2);                                // [client, route, callback, event_registry, route]
     lua_rawget(L, -2);                                  // [client, route, callback, event_registry, listeners]
     if (lua_isnil(L, -1) || (n = lua_rawlen(L, -1)) == 0) {
@@ -848,7 +870,7 @@ static int Client_listeners(lua_State* L)
                                                         // [client, route]
     pc_client_t* client = toClient(L);
     luaL_checkstring(L, 2);
-    load_registry(L, (int)pc_client_ex_data(client));   // [client, route, event_registry]
+    load_registry(L, pc_client_ex_data(client));        // [client, route, event_registry]
     lua_pushvalue(L, 2);                                // [client, route, event_registry, route]
     lua_rawget(L, -2);                                  // [client, route, event_registry, listeners]
     if (lua_istable(L, -1))
@@ -911,6 +933,7 @@ static const luaL_Reg lib[] = {
     {"version", lib_version},
     {"newClient", Client_new},
     {"createClient", Client_new},   // Alias for newClient().
+    {"poll", lib_poll},
 
     {NULL, NULL}
 };
@@ -918,7 +941,7 @@ static const luaL_Reg lib[] = {
 
 static int initialized = 0;
 
-LUALIB_API int luaopen_pomelo(lua_State *L)
+extern "C" LUALIB_API int luaopen_pomelo(lua_State *L)
 {
     if (!initialized) {
         initialized = 1;

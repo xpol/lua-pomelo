@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-project (pomelo C)
+project (pomelo)
 
 list(APPEND CMAKE_MODULE_PATH "cmake/Modules")
 
@@ -54,7 +54,7 @@ find_package(OpenSSL)
 include_directories(${LUA_INCLUDE_DIR} ${LIBPOMELO2_DIR}/include ${LIBPOMELO2_DIR}/src ${LIBUV_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
 
 list(APPEND SOURCES
-  src/lua-pomelo.c
+  src/lua-pomelo.cpp
   ${LIBPOMELO2_DIR}/src/pc_pomelo.c
   ${LIBPOMELO2_DIR}/src/pc_lib.c
   ${LIBPOMELO2_DIR}/src/pc_trans.c
