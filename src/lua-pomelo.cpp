@@ -6,11 +6,7 @@
 #include <vector>
 #include "pomelo.h"
 
-std::vector<pc_client_t*>& all_clients()
-{
-    static std::vector<pc_client_t*> clients_;
-    return clients_;
-}
+std::vector<pc_client_t*> clients;
 
 #if LUA_VERSION_NUM < 502
 #define lua_rawlen(L, idx)      lua_objlen(L, idx)
@@ -121,12 +117,21 @@ static int lib_version(lua_State* L)
 }
 
 
+static int polling = 0;
+
+void pomelo_poll(void) {
+    polling = 1;
+    std::vector<pc_client_t*> copyed(clients); // make a copy of all clients vector for safe against deletion
+    for (std::vector<pc_client_t*>::size_type i = 0; i < copyed.size(); ++i) {
+        pc_client_poll(copyed[i]);
+    }
+    polling = 0;
+}
+
 static int lib_poll(lua_State* L)
 {
-    std::vector<pc_client_t*> clients(all_clients()); // make a copy of all clients vector for safe against deletion
-    for (std::vector<pc_client_t*>::size_type i = 0; i < clients.size(); ++i) {
-        pc_client_poll(clients[i]);
-    }
+    (void)(L);
+    pomelo_poll();
     return 0;
 }
 
@@ -134,6 +139,10 @@ static int lib_poll(lua_State* L)
 
 static void pushClient(lua_State* L, pc_client_t* client)
 {
+    if (!client) {
+        lua_pushnil(L);
+        return;
+    }
     pc_client_t** w = (pc_client_t**)lua_newuserdata(L, sizeof(*w));
     *w = client;
     luaL_getmetatable(L, ClientMETA);
@@ -346,6 +355,29 @@ static void lua_event_cb(pc_client_t *client, int ev_type, void* ex_data, const 
     lua_settop(L, start - 1);
 }
 
+static pc_client_t* createClient(lua_State* L, const pc_client_config_t* cfg) {
+    pc_client_t* client = (pc_client_t* )malloc(pc_client_size());
+    int listeners = LUA_NOREF;
+    if (!client) {
+        return NULL;
+    }
+
+    // use lua table as events listener registry
+    listeners = create_registry(L);
+    if (pc_client_init(client, (void*)(ptrdiff_t)listeners, cfg) != PC_RC_OK) {
+        destroy_registry(L, listeners);
+        free(client);
+        return NULL;
+    }
+
+    pc_client_add_ev_handler(client, lua_event_cb, L, NULL);
+
+    clients.push_back(client);
+
+    return client;
+}
+
+
 /*
  * local pomelo = require('pomelo')
  * local opts =  {
@@ -363,26 +395,7 @@ static void lua_event_cb(pc_client_t *client, int ev_type, void* ex_data, const 
 static int Client_new(lua_State* L)
 {
     pc_client_config_t config = check_client_config(L, 1);
-    pc_client_t* client = (pc_client_t* )malloc(pc_client_size());
-    int listeners = LUA_NOREF;
-    if (!client) {
-        lua_pushnil(L);
-        return 1;
-    }
-
-    // use lua table as events listener registry
-    listeners = create_registry(L);
-    if (pc_client_init(client, (void*)(ptrdiff_t)listeners, &config) != PC_RC_OK) {
-        destroy_registry(L, listeners);
-        free(client);
-        lua_pushnil(L);
-        return 1;
-    }
-
-    pc_client_add_ev_handler(client, lua_event_cb, L, NULL);
-
-    pushClient(L, client);
-    all_clients().push_back(client);
+    pushClient(L, createClient(L, &config));
     return 1;
 }
 
@@ -460,7 +473,10 @@ static int Client_gc(lua_State* L)
     pc_client_t** p = toClientp(L);
     if (!*p)
         return 0;
-    std::vector<pc_client_t*>& clients = all_clients();
+    if (polling) {
+        printf("***Can't delete pomelo client in callbacks (are you store client in temporary variable).\n");
+        luaL_error(L, "state error");
+    }
     clients.erase(std::remove(clients.begin(), clients.end(), *p), clients.end());
     pc_client_cleanup(*p);
     free(*p);
@@ -928,11 +944,29 @@ static void createClassMetatable(lua_State* L, const char* name, const luaL_Reg*
     lua_pop(L, 1);
 }
 
+
+static int lib_connect(lua_State* L)
+{
+    pc_client_config_t config = PC_CLIENT_CONFIG_DEFAULT;
+    config.enable_polling = 1;
+    pc_client_t* client = createClient(L, &config);
+    if (client) {
+        const char* host = luaL_checkstring(L, 1);
+        int port = (int)luaL_checkinteger(L, 2);
+        const char* handshake_opts = luaL_optstring(L, 3, NULL);
+        pc_client_connect(client, host, port, handshake_opts);
+    }
+    pushClient(L, client);
+    return 1;
+}
+
+
 static const luaL_Reg lib[] = {
     {"configure", lib_configure},
     {"version", lib_version},
     {"newClient", Client_new},
     {"createClient", Client_new},   // Alias for newClient().
+    {"connect", lib_connect},
     {"poll", lib_poll},
 
     {NULL, NULL}

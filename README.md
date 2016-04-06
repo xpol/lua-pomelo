@@ -144,6 +144,17 @@ Note: In Lua binding, unlike in c, all client in polling mode, that is setting
 
 same as pomelo.newClient
 
+
+**pomelo.connect(host, port[, handshake_opts])**
+
+Connect to server.
+
+* host: server address.
+* port: server port.
+* handshake_opts: optional, see libpomelo2 docs.
+
+Returns the new Client object.
+
 **pomelo.poll**
 
 Polls all clients at once.
