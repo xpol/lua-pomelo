@@ -185,8 +185,8 @@ Return nil and error information on error.
 **client:request(route, message[, timeout], callback)**
 
 Send a request `message` to server at specified `route` with optional `timeout`.
-When the server response received by client, the `callback` will be called.
-
+When the server response received by client, the `callback` will be called  with `err` and `res`.
+`err` is the err information if any or `nil` on success. `res` is the response string.
 
 Returns true on success.
 Return nil and error information on error.
@@ -195,6 +195,8 @@ Return nil and error information on error.
 
 Send a notify `message` to server at specified `route`.
 And can optional specify `timeout` and `callback`.
+If specified, the `callback` will be called  with `err`.
+`err` is the err information if any or `nil` on success.
 
 Returns true on success.
 Return nil and error information on error.

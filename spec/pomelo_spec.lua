@@ -102,7 +102,6 @@ describe('pomelo', function()
         assert.spy(callback).was.called(1)
         assert.spy(callback).was.called_with(
           nil,
-          {route='connector.entryHandler.entry', msg='{"name": "test"}', timeout=10},
           '{"code":200,"msg":"game server is ok."}'
         )
       end)

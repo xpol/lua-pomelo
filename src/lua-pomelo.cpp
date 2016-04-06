@@ -525,19 +525,6 @@ static void destroy_lua_cb_ex(lua_cb_ex_t* p)
     free(p);
 }
 
-
-
-#define copy_field(L, from, type, name, push) push(L, pc_##type##_##name(from)); lua_setfield(L, -2, #name)
-/**
- * push the obj as a table copy on to lua stack
- */
-#define push_as_table(L, type, obj) \
-    lua_createtable(L, 0, 3); \
-    copy_field(L, obj, type, route, lua_pushstring); \
-    copy_field(L, obj, type, msg, lua_pushstring); \
-    copy_field(L, obj, type, timeout, lua_pushinteger)
-
-
 static lua_State* load_cb_env(void* cbex)
 {
     lua_State* L = NULL;
@@ -568,11 +555,10 @@ static void lua_request_cb(const pc_request_t* req, int rc, const char* res)
     top = lua_gettop(L) - 1;
 
     push_as_error(L, rc);   // err
-    push_as_table(L, request, req); // req
     lua_pushstring(L, res); // res
 
-    // callback(err, req, res)
-    lua_pcall(L, 3, 0, 0);
+    // callback(err, res)
+    lua_pcall(L, 2, 0, 0);
     lua_settop(L, top);
 }
 
@@ -582,10 +568,9 @@ static void lua_nofity_cb(const pc_notify_t* req, int rc)
     if (!L) return;
 
     push_as_error(L, rc); // err
-    push_as_table(L, notify, req); // req
 
-    // callback(err, req)
-    if (lua_pcall(L, 2, LUA_MULTRET, 0) != 0)
+    // callback(err)
+    if (lua_pcall(L, 1, LUA_MULTRET, 0) != 0)
         traceback(L);
 }
 
