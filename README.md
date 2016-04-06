@@ -9,6 +9,22 @@ pomelo is a fast, scalable, distributed game server framework for Node.js.
 [libpomelo2]: https://github.com/NetEase/libpomelo2
 [pomelo]: https://github.com/NetEase/pomelo
 
+## Attention
+
+### Polling
+
+**The Lua binding use libpomelo2 in polling mode. That is client can't receive any event unless
+polling function `pomelo.poll()` are called.**
+
+### Memory Management
+
+This binding library use Lua GC to free pomelo client. But currently libpomelo2's `pc_client_cleanup`
+does not remove client from receive further events. So if client object at Lua side get destroyed
+too early, it will certainly lead program crash.
+
+**The solution is extend lifecycle for Lua client object. So don't keep the Lua client object only in
+temporary variables. And reuse client objects if possible.**
+
 ## Requirements
 
 This package shipped with a copy of libpomelo2.
@@ -37,7 +53,7 @@ In this case, luarocks can't help. To add this Lua binding for you game:
 2. add libpomelo2 to you project and make it compile and link to you project.
 3. just drop `lua-pomelo.c` and `lua-pomelo.h` in to you project.
 4. add luaopen_pomelo to your package.preload, see follow code.
-5. don't forget to call `client:poll` method each frame update.
+5. don't forget to call `pomelo.poll()` method each frame update.
 
 ```c
 #include <lua.h>
@@ -159,7 +175,7 @@ Returns the new Client object.
 
 Polls all clients at once.
 
-This is preferred over `cleint:poll()`.
+This is preferred over `client:poll()`.
 
 ### Client object
 
