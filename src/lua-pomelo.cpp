@@ -278,24 +278,26 @@ static void destroy_registry(lua_State* L, int ref) {
     luaL_unref(L, LUA_REGISTRYINDEX, ref);
 }
 
-static const char* const handler_names[PC_EV_COUNT] = {
-    NULL, // PC_EV_USER_DEFINED_PUSH 0
-    "connect", // PC_EV_CONNECTED 1
-    "error", // PC_EV_CONNECT_ERROR 2
-    "error", // PC_EV_CONNECT_FAILED 3
-    "disconnect", // PC_EV_DISCONNECT 4
-    "kick", // PC_EV_KICKED_BY_SERVER 5
-    "error", // PC_EV_UNEXPECTED_DISCONNECT 6
-    "error", // PC_EV_PROTO_ERROR 7
+struct arg_info_t {
+    const char* handler_name;
+    int nargs;
+    int args[2]; // args index array
+};
+
+static const struct arg_info_t ev_arg_info[PC_EV_COUNT] = {
+    {        NULL, 1, {1}}, // PC_EV_USER_DEFINED_PUSH 0
+    {   "connect", 0,    }, // PC_EV_CONNECTED 1
+    {     "error", 1, {0}}, // PC_EV_CONNECT_ERROR 2
+    {     "error", 1, {0}}, // PC_EV_CONNECT_FAILED 3
+    {"disconnect", 0,    }, // PC_EV_DISCONNECT 4
+    {      "kick", 0,    }, // PC_EV_KICKED_BY_SERVER 5
+    {     "error", 1, {0}}, // PC_EV_UNEXPECTED_DISCONNECT 6
+    {     "error", 1, {0}}, // PC_EV_PROTO_ERROR 7
 };
 
 static int get_event_handlers(lua_State* L, const pc_client_t *client, int ev_type, const char* arg1)
 {
-    const char* handler_name;
-    if (ev_type < 0 || ev_type >= PC_EV_COUNT) {
-        return 0;
-    }
-    handler_name = ev_type == 0 ? arg1 : handler_names[ev_type];
+    const char* handler_name = ev_type == 0 ? arg1 : ev_arg_info[ev_type].handler_name;
 
     load_registry(L, pc_client_ex_data(client));    // [event_registry]
     lua_pushstring(L, handler_name);                // [event_registry, handler_name]
@@ -304,24 +306,13 @@ static int get_event_handlers(lua_State* L, const pc_client_t *client, int ev_ty
     return 1;
 }
 
-static int push_event_args(lua_State* L, int ev_type, const char* arg1, const char* arg2)
+static int push_event_args(lua_State* L, int ev_type, const char** args)
 {
-    switch (ev_type) {
-        case PC_EV_USER_DEFINED_PUSH:
-            lua_pushstring(L, arg2);                // [event_registry, handlers, arg]
-            return 1; // 1 args
-        case PC_EV_CONNECT_ERROR:
-        case PC_EV_CONNECT_FAILED:
-        case PC_EV_UNEXPECTED_DISCONNECT:
-        case PC_EV_PROTO_ERROR:
-            lua_pushstring(L, arg1);                // [event_registry, handlers, reason]
-            return 1; // 1 args
-        case PC_EV_CONNECTED:
-        case PC_EV_DISCONNECT:
-        case PC_EV_KICKED_BY_SERVER:
-        default:
-            return 0; // no args
+    const struct arg_info_t& info = ev_arg_info[ev_type];
+    for (int i = 0; i < info.nargs; ++i) {
+        lua_pushstring(L, args[info.args[i]]);
     }
+    return info.nargs;
 }
 
 /**
@@ -338,6 +329,10 @@ static int push_event_args(lua_State* L, int ev_type, const char* arg1, const ch
  */
 static void lua_event_cb(pc_client_t *client, int ev_type, void* ex_data, const char* arg1, const char* arg2)
 {
+    if (ev_type < 0 || ev_type >= PC_EV_COUNT)
+        return;
+
+    const char* args[2] = {arg1, arg2};
     int handlers, nargs, n, i, copy, a;
     lua_State* L = (lua_State*)ex_data;
     lua_checkstack(L, 4);
@@ -360,7 +355,7 @@ static void lua_event_cb(pc_client_t *client, int ev_type, void* ex_data, const 
 
     for (i = 1; i <= n; ++i) {
         lua_rawgeti(L, copy, i);                        // [copy, handler]
-        nargs = push_event_args(L, ev_type, arg1, arg2);// [copy, handler, args...]
+        nargs = push_event_args(L, ev_type, args);      // [copy, handler, args...]
         if (lua_pcall(L, nargs, LUA_MULTRET, 0) != 0)   // [copy, handler, args...]
             traceback(L);
         lua_settop(L, copy);                            // [copy]
