@@ -310,18 +310,17 @@ static int push_event_args(lua_State* L, int ev_type, const char* arg1, const ch
         case PC_EV_USER_DEFINED_PUSH:
             lua_pushstring(L, arg2);                // [event_registry, handlers, arg]
             return 1; // 1 args
-        case PC_EV_CONNECTED:
-        case PC_EV_DISCONNECT:
-        case PC_EV_KICKED_BY_SERVER:
-            return 0; // no args
         case PC_EV_CONNECT_ERROR:
         case PC_EV_CONNECT_FAILED:
         case PC_EV_UNEXPECTED_DISCONNECT:
         case PC_EV_PROTO_ERROR:
             lua_pushstring(L, arg1);                // [event_registry, handlers, reason]
-            return 1;
+            return 1; // 1 args
+        case PC_EV_CONNECTED:
+        case PC_EV_DISCONNECT:
+        case PC_EV_KICKED_BY_SERVER:
         default:
-            return 0;
+            return 0; // no args
     }
 }
 
