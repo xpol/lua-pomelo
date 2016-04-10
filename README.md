@@ -226,9 +226,9 @@ in the listener being added, and called, multiple times.
 
 The events include:
 
-* 'connected': with not callback args.
+* 'connect': with not callback args.
 * 'disconnect': with not callback args.
-* 'kicked': with not callback args.
+* 'kick': with not callback args.
 * 'error': with a reason callback arg.
 * for user defined push, the route is the event, and message is the event callback arg.
 

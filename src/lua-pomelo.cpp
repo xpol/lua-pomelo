@@ -278,6 +278,53 @@ static void destroy_registry(lua_State* L, int ref) {
     luaL_unref(L, LUA_REGISTRYINDEX, ref);
 }
 
+static const char* const handler_names[PC_EV_COUNT] = {
+    NULL, // PC_EV_USER_DEFINED_PUSH 0
+    "connect", // PC_EV_CONNECTED 1
+    "error", // PC_EV_CONNECT_ERROR 2
+    "error", // PC_EV_CONNECT_FAILED 3
+    "disconnect", // PC_EV_DISCONNECT 4
+    "kick", // PC_EV_KICKED_BY_SERVER 5
+    "error", // PC_EV_UNEXPECTED_DISCONNECT 6
+    "error", // PC_EV_PROTO_ERROR 7
+};
+
+static int get_event_handlers(lua_State* L, const pc_client_t *client, int ev_type, const char* arg1)
+{
+    const char* handler_name;
+    if (ev_type < 0 || ev_type >= PC_EV_COUNT) {
+        return 0;
+    }
+    handler_name = ev_type == 0 ? arg1 : handler_names[ev_type];
+
+    load_registry(L, pc_client_ex_data(client));    // [event_registry]
+    lua_pushstring(L, handler_name);                // [event_registry, handler_name]
+    lua_rawget(L, -2);                              // [event_registry, handlers]
+    lua_remove(L, -2);                              // [handlers]
+    return 1;
+}
+
+static int push_event_args(lua_State* L, int ev_type, const char* arg1, const char* arg2)
+{
+    switch (ev_type) {
+        case PC_EV_USER_DEFINED_PUSH:
+            lua_pushstring(L, arg2);                // [event_registry, handlers, arg]
+            return 1; // 1 args
+        case PC_EV_CONNECTED:
+        case PC_EV_DISCONNECT:
+        case PC_EV_KICKED_BY_SERVER:
+            return 0; // no args
+        case PC_EV_CONNECT_ERROR:
+        case PC_EV_CONNECT_FAILED:
+        case PC_EV_UNEXPECTED_DISCONNECT:
+        case PC_EV_PROTO_ERROR:
+            lua_pushstring(L, arg1);                // [event_registry, handlers, reason]
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 /**
  * event handler callback and event types
  *
@@ -292,67 +339,35 @@ static void destroy_registry(lua_State* L, int ref) {
  */
 static void lua_event_cb(pc_client_t *client, int ev_type, void* ex_data, const char* arg1, const char* arg2)
 {
-    int nargs = 0, n, i, copy, a, start;
+    int handlers, nargs, n, i, copy, a;
     lua_State* L = (lua_State*)ex_data;
-    lua_checkstack(L, 8);
-    load_registry(L, pc_client_ex_data(client));    // [event_registry]
-    start = lua_gettop(L);
+    lua_checkstack(L, 4);
+    if (!get_event_handlers(L, client, ev_type, arg1))
+        return;
+                                                        // [handlers]
+    n = lua_rawlen(L, -1);
+    if (n == 0)                                         // handler array is empty...
+        return;
 
-    switch (ev_type) {
-        case PC_EV_USER_DEFINED_PUSH:
-            lua_pushstring(L, arg1);                // [event_registry, route]
-            lua_rawget(L, -2);                      // [event_registry, handlers]
-            lua_pushstring(L, arg2);                // [event_registry, handlers, arg]
-            nargs = 1;
-            break;
-        case PC_EV_CONNECTED:
-            lua_pushliteral(L, "connected");        // [event_registry, connected]
-            lua_rawget(L, -2);                      // [event_registry, handlers]
-            break;
-        case PC_EV_DISCONNECT:
-            lua_pushliteral(L, "disconnect");       // [event_registry, disconnect]
-            lua_rawget(L, -2);                      // [event_registry, handlers]
-            break;
-        case PC_EV_KICKED_BY_SERVER:
-            lua_pushliteral(L, "kicked");           // [event_registry, kick]
-            lua_rawget(L, -2);                      // [event_registry, handlers]
-            break;
-        case PC_EV_CONNECT_ERROR:
-        case PC_EV_CONNECT_FAILED:
-        case PC_EV_UNEXPECTED_DISCONNECT:
-        case PC_EV_PROTO_ERROR:
-            lua_pushliteral(L, "error");            // [event_registry, error]
-            luaL_checktype(L, -2, LUA_TTABLE);
-            lua_rawget(L, -2);                      // [event_registry, handlers]
-            lua_pushstring(L, arg1);                // [event_registry, handlers, reason]
-            nargs = 1;
-            break;
-        default:
-            lua_pop(L, 1);
-            return;
+    handlers = lua_gettop(L);
+    // make a copy of listeners so that safe against remove or add.
+    lua_createtable(L, n, 0);                           // [handlers, copy]
+    for (i = 1; i <= n; ++i) {
+        lua_rawgeti(L, handlers, i);                    // [handlers, copy, listener]
+        lua_rawseti(L, -2, i);                          // [handlers, copy]
     }
-                                                    // [event_registry, handlers, ...]
-    n = lua_rawlen(L, start + 1);
-    if (n > 0)
-    {
-        // make a copy of listeners so that safe against remove or add.
-        lua_createtable(L, n, 0);                   // [event_registry, handlers, ..., copy]
-        for (i = 1; i <= n; ++i) {
-            lua_rawgeti(L, start + 1, i);           // [event_registry, handlers, ..., copy, listener]
-            lua_rawseti(L, -2, i);                  // [event_registry, handlers, ..., copy]
-        }
-        copy = lua_gettop(L);
-        for (i = 1; i <= n; ++i) {
-            lua_rawgeti(L, copy, i);                // [event_registry, handlers, ..., copy, handler]
-            for (a = 0; a < nargs; ++a)
-                lua_pushvalue(L, start + 3 + a);
-                                                    // [event_registry, handlers, ..., copy, handler, ...]
-            if (lua_pcall(L, nargs, 0, 0) != 0)
-                traceback(L);
-        }
+    lua_replace(L, handlers);                           // [copy]
+    copy = handlers;
+
+    for (i = 1; i <= n; ++i) {
+        lua_rawgeti(L, copy, i);                        // [copy, handler]
+        nargs = push_event_args(L, ev_type, arg1, arg2);// [copy, handler, args...]
+        if (lua_pcall(L, nargs, LUA_MULTRET, 0) != 0)   // [copy, handler, args...]
+            traceback(L);
+        lua_settop(L, copy);                            // [copy]
     }
 
-    lua_settop(L, start - 1);
+    lua_pop(L, 1);                                      // []
 }
 
 static pc_client_t* createClient(lua_State* L, const pc_client_config_t* cfg) {
