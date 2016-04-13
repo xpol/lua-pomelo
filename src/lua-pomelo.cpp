@@ -594,7 +594,7 @@ typedef struct {
 
 static lua_req_arg_t get_args(lua_State* L, int optional)
 {
-    lua_req_arg_t args;
+    lua_req_arg_t args = {0};
     int cbindex = 5;
     size_t sz;
     int nargs = lua_gettop(L);
@@ -619,9 +619,12 @@ static lua_req_arg_t get_args(lua_State* L, int optional)
         }
     }
 
-    if (!iscallable(L, cbindex) && !optional)
+    if (!iscallable(L, cbindex)) {
+        if (!optional)
         luaL_error(L, "bad argument %d (function expected, got %s)", cbindex, luaL_typename(L, cbindex));
-    args.ex = create_lua_cb_ex(L, cbindex);
+    }
+    else
+        args.ex = create_lua_cb_ex(L, cbindex);
     return args;
 }
 
