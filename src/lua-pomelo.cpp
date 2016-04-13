@@ -597,6 +597,7 @@ static lua_req_arg_t get_args(lua_State* L, int optional)
     lua_req_arg_t args;
     int cbindex = 5;
     size_t sz;
+    int nargs = lua_gettop(L);
     args.client = toClient(L);
     args.route = luaL_checkstring(L, 2);
     args.msg = luaL_checklstring(L, 3, &sz);
@@ -604,13 +605,20 @@ static lua_req_arg_t get_args(lua_State* L, int optional)
         luaL_argerror(L, 3, "message should not be empty");
     args.timeout = PC_WITHOUT_TIMEOUT;
 
-    switch (lua_type(L, 4)) {
-        case LUA_TTABLE: // fall thought
-        case LUA_TFUNCTION: cbindex = 4; break;
-        case LUA_TNUMBER: args.timeout = lua_tointeger(L, 4); break;
-        default:
-            luaL_error(L, "bad argument %d (number|function expected, got %s)", 4, luaL_typename(L, 4));
+    if (nargs < 4) {
+        if (!optional)
+            luaL_error(L, "4 or 5 arguments expected, got %d)", nargs);
     }
+    else {
+        switch (lua_type(L, 4)) {
+            case LUA_TTABLE: // fall thought
+            case LUA_TFUNCTION: cbindex = 4; break;
+            case LUA_TNUMBER: args.timeout = lua_tointeger(L, 4); break;
+            default:
+                luaL_error(L, "bad argument %d (number|function expected, got %s)", 4, luaL_typename(L, 4));
+        }
+    }
+
     if (!iscallable(L, cbindex) && !optional)
         luaL_error(L, "bad argument %d (function expected, got %s)", cbindex, luaL_typename(L, cbindex));
     args.ex = create_lua_cb_ex(L, cbindex);
