@@ -516,8 +516,13 @@ typedef struct {
     int ref;
 } lua_cb_ex_t;
 
-static lua_cb_ex_t* create_lua_cb_ex(lua_State* L, int index)
+static lua_cb_ex_t* create_lua_cb_ex(lua_State* L, int index, int error)
 {
+    if (!iscallable(L, index)) {
+        if (error)
+            luaL_error(L, "bad argument %d (function expected, got %s)", index, luaL_typename(L, index));
+        return NULL;
+    }
     lua_cb_ex_t* p = (lua_cb_ex_t*)malloc(sizeof(*p));
     if (!p)
         return NULL;
@@ -583,50 +588,74 @@ static void lua_nofity_cb(const pc_notify_t* req, int rc)
         traceback(L);
 }
 
-typedef struct {
+struct LuaReqify { // REQuest and notIFY...
+    LuaReqify() : timeout(PC_WITHOUT_TIMEOUT), ex(NULL) {}
+    int request(lua_State* L) {
+        check_request(L);
+        int rc = pc_request_with_timeout(client, route, msg, ex, timeout, lua_request_cb);
+        return pushRC(L, rc);
+    }
+
+    int notify(lua_State* L) {
+        check_notify(L);
+        int rc = pc_notify_with_timeout(client, route, msg, ex, timeout, lua_nofity_cb);
+        return pushRC(L, rc);
+    }
+
+private:
+    int check_base(lua_State* L) {
+        int nargs = lua_gettop(L);
+        if (nargs > 5)
+            luaL_error(L, "at most 5 arguments expected, got %d)", nargs);// never returns.
+
+        size_t sz;
+        client = toClient(L);
+        route = luaL_checkstring(L, 2);
+        msg = luaL_checklstring(L, 3, &sz);
+        if (sz == 0)
+            luaL_argerror(L, 3, "message should not be empty");
+        return nargs;
+    }
+
+    void check_request(lua_State* L)
+    {
+        int nargs = check_base(L);
+        if (nargs < 4)
+            luaL_error(L, "4 or 5 arguments expected, got %d)", nargs);
+
+        ex = create_lua_cb_ex(L, nargs, 1);
+
+        if (nargs == 5) { // then 4th arg is timeout
+            timeout = luaL_checkinteger(L, 4);
+        }
+    }
+
+    void check_notify(lua_State* L)
+    {
+        int nargs = check_base(L);
+        switch (nargs) {
+            case 3: return;
+            case 4:
+                ex = create_lua_cb_ex(L, 4, 0);
+                if (!ex)
+                    timeout = luaL_checkinteger(L, 4);
+                break;
+            case 5:
+                timeout = luaL_checkinteger(L, 4);
+                ex = create_lua_cb_ex(L, 5, 1);
+                break;
+            default:
+                break;
+        }
+    }
+
     pc_client_t* client;
     const char* route;
     const char* msg;
     int timeout;
     lua_cb_ex_t* ex;
-} lua_req_arg_t;
+};
 
-
-static lua_req_arg_t get_args(lua_State* L, int optional)
-{
-    lua_req_arg_t args = {0};
-    int cbindex = 5;
-    size_t sz;
-    int nargs = lua_gettop(L);
-    args.client = toClient(L);
-    args.route = luaL_checkstring(L, 2);
-    args.msg = luaL_checklstring(L, 3, &sz);
-    if (sz == 0)
-        luaL_argerror(L, 3, "message should not be empty");
-    args.timeout = PC_WITHOUT_TIMEOUT;
-
-    if (nargs < 4) {
-        if (!optional)
-            luaL_error(L, "4 or 5 arguments expected, got %d)", nargs);
-    }
-    else {
-        switch (lua_type(L, 4)) {
-            case LUA_TTABLE: // fall thought
-            case LUA_TFUNCTION: cbindex = 4; break;
-            case LUA_TNUMBER: args.timeout = lua_tointeger(L, 4); break;
-            default:
-                luaL_error(L, "bad argument %d (number|function expected, got %s)", 4, luaL_typename(L, 4));
-        }
-    }
-
-    if (!iscallable(L, cbindex)) {
-        if (!optional)
-        luaL_error(L, "bad argument %d (function expected, got %s)", cbindex, luaL_typename(L, cbindex));
-    }
-    else
-        args.ex = create_lua_cb_ex(L, cbindex);
-    return args;
-}
 
 /**
  * client:request(route, message[, timeout], callback)
@@ -636,11 +665,7 @@ static lua_req_arg_t get_args(lua_State* L, int optional)
  */
 static int Client_request(lua_State* L)
 {
-    lua_req_arg_t args = get_args(L, 0);
-    int rc = pc_request_with_timeout(
-        args.client, args.route, args.msg,
-        args.ex, args.timeout, lua_request_cb);
-    return pushRC(L, rc);
+    return LuaReqify().request(L);
 }
 
 
@@ -652,11 +677,7 @@ static int Client_request(lua_State* L)
  */
 static int Client_notify(lua_State* L)
 {
-    lua_req_arg_t args = get_args(L, 1);
-
-    int rc = pc_notify_with_timeout(args.client, args.route, args.msg,
-        args.ex, args.timeout, lua_nofity_cb);
-    return pushRC(L, rc);
+    return LuaReqify().notify(L);
 }
 
 
