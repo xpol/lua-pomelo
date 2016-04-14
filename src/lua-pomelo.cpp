@@ -333,7 +333,7 @@ static void lua_event_cb(pc_client_t *client, int ev_type, void* ex_data, const 
         return;
 
     const char* args[2] = {arg1, arg2};
-    int handlers, nargs, n, i, copy, a;
+    int handlers, nargs, n, i, copy;
     lua_State* L = (lua_State*)ex_data;
     lua_checkstack(L, 4);
     if (!get_event_handlers(L, client, ev_type, arg1))
